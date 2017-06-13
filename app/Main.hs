@@ -1,4 +1,3 @@
-module Main where
 import Vec
 import Shapes
 import Ray
@@ -40,93 +39,96 @@ radiance shapes ray rands depth e =
                         --russian roulette second part
                         if (depth >= 5 || p == 0.0) && (head rands) >= p
                             then (emission obj) `muld` e
-                            else radiance2 shapes ray rands depth e n nl x obj colp
+                            else case material obj of
+                                    DIFF -> radianceDIFF shapes ray rands depth e n nl x obj colp
+                                    SPEC -> radianceSPEC shapes ray rands depth e n nl x obj colp
+                                    REFR -> radianceREFR shapes ray rands depth e n nl x obj colp
                             
-radiance2 shapes ray rands depth e n nl x obj colp =                       
-    case material obj of
-            DIFF -> let 
-                        r1 = 2*pi*(head $ drop 1 $ rands)
-                        r2 = (head $ drop 2 $ rands)
-                        r2s = sqrt(r2)
-                        w@(Vec(xx, _, _)) = nl
-                        u = norm $ w `cross` if (abs xx) > 0.1
-                                               then Vec(0.0, 1.0, 0.0)
-                                               else Vec(1.0, 0.0, 0.0)
-                        v = w `cross` u
-                        d = norm ((u `muld` ((cos r1)*r2s)) `add` (v `muld` ((sin r1)*r2s)) `add` (w `muld` (sqrt (1-r1)) ))
-                        light = \acc s -> let
-                                            sw@(Vec(xxx, _, _)) = (position s) `sub` x
-                                            su = norm $ w `cross` if (abs xx) > 0.1
-                                                                    then Vec(0.0, 1.0, 0.0)
-                                                                    else Vec(1.0, 0.0, 0.0)
-                                            sv = sw `cross` su
-                                            h = (x `sub` (position s))
-                                            cos_a_max = sqrt(1- ((radius s)^2)/(h `dot` h))
-                                            eps1 = (head $ drop 3 $ rands)
-                                            eps2 = (head $ drop 4 $ rands)
-                                            cos_a = 1-eps1+(eps1*cos_a_max)
-                                            sin_a = sqrt(1-cos_a^2)
-                                            phi = 2*pi*eps2
-                                            l = norm ((su `muld` ((cos phi)*sin_a)) `add` (sv `muld` ((sin phi)*sin_a)) `add` (sw `muld` cos_a))
-                                            sph = hit shapes (Ray x l)
-                                        in
-                                            case sph of
-                                                [(sp, _)] ->   let
-                                                                    omega = 2*pi*(1-cos_a_max)
-                                                               in
-                                                                    if sp == s 
-                                                                        then acc `add` ( ( colp `mulv` ( (emission s) `muld` ( (l `dot` nl) * omega))) `muld` (1/pi))
-                                                                        else acc
-                                                _ -> acc
-                        em = foldl (light) (Vec(0.0, 0.0, 0.0)) (getLightSources shapes)                    
-                    in
-                        ((emission obj) `muld` e) `add` em `add` (colp `mulv` (radiance shapes (Ray x d) (drop 5 rands) (depth+1) 0))
-            
-            SPEC -> (emission obj) `add` (colp `mulv` (radiance shapes (Ray x ((direction ray) `sub` (n `muld` ndrd `muld` 2))) (drop 5 rands) (depth+1) 1))
-                        where
-                            ndrd = n `dot` (direction ray)
-        
-            REFR -> let
-                        ndrd = n `dot` (direction ray)
-                        refl = Ray x ((direction ray) `sub` (n `muld` ndrd `muld` 2))
-                        into = (n `dot` nl)>0
-                        nc = 1.0
-                        nt = 1.5
-                        nnt = if into
-                                then nc/nt
-                                else nt/nc
-                        ddn = (direction ray) `dot` nl
-                        cos2t = 1-((nnt^2)*(1-(ddn^2)))
-                    in
-                        if cos2t < 0 --total internal reflection
-                            then (emission obj) `add` (colp `mulv` (radiance shapes refl (drop 5 rands) (depth+1) 1))
-                            else let
-                                    yon = if into
-                                            then 1.0
-                                            else (-1.0)
-                                    tdir = norm (((direction ray) `muld` nnt) `sub` (n `muld` yon `muld` (ddn*nnt + sqrt(cos2t))) )
-                                    a = nt-nc
-                                    b = nt+nc
-                                    c = if into
-                                            then (ddn * (-1.0))
-                                            else tdir `dot` n
-                                    r0 = (a^2)/(b^2)
-                                    re = r0 + (1-r0)*(c^5)
-                                    tr = 1-re
-                                    p = 0.25 + 0.5*re
-                                    rp = re/p
-                                    tp = tr/(1-p)
-                                    ran = head $ drop 6 $ rands
-                                    next_rands = drop 7 $ rands
-                                 in
-                                    (emission obj) `add` (colp `mulv` if depth > 2
-                                                                    then if ran < p
-                                                                            then ( radiance shapes refl (drop 7 rands) (depth+1) 1) `muld` rp
-                                                                            else ( radiance shapes (Ray x tdir) (drop 7 rands) (depth+1) 1) `muld` tp
-                                                                    else add (( radiance shapes refl (drop 7 rands) (depth+1) 1) `muld` re) (( radiance shapes (Ray x tdir) (drop 14 rands) (depth+1) 1) `muld` tr))
+radianceDIFF shapes ray rands depth e n nl x obj colp =                       
+    let 
+        r1 = 2*pi*(head $ drop 1 $ rands)
+        r2 = (head $ drop 2 $ rands)
+        r2s = sqrt(r2)
+        w@(Vec(xx, _, _)) = nl
+        u = norm $ w `cross` if (abs xx) > 0.1
+                               then Vec(0.0, 1.0, 0.0)
+                               else Vec(1.0, 0.0, 0.0)
+        v = w `cross` u
+        d = norm ((u `muld` ((cos r1)*r2s)) `add` (v `muld` ((sin r1)*r2s)) `add` (w `muld` (sqrt (1-r1)) ))
+        light = \acc s -> let
+                            sw@(Vec(xxx, _, _)) = (position s) `sub` x
+                            su = norm $ w `cross` if (abs xx) > 0.1
+                                                    then Vec(0.0, 1.0, 0.0)
+                                                    else Vec(1.0, 0.0, 0.0)
+                            sv = sw `cross` su
+                            h = (x `sub` (position s))
+                            cos_a_max = sqrt(1- ((radius s)^2)/(h `dot` h))
+                            eps1 = (head $ drop 3 $ rands)
+                            eps2 = (head $ drop 4 $ rands)
+                            cos_a = 1-eps1+(eps1*cos_a_max)
+                            sin_a = sqrt(1-cos_a^2)
+                            phi = 2*pi*eps2
+                            l = norm ((su `muld` ((cos phi)*sin_a)) `add` (sv `muld` ((sin phi)*sin_a)) `add` (sw `muld` cos_a))
+                            sph = hit shapes (Ray x l)
+                        in
+                            case sph of
+                                [(sp, _)] ->   let
+                                                    omega = 2*pi*(1-cos_a_max)
+                                               in
+                                                    if sp == s 
+                                                        then acc `add` ( ( colp `mulv` ( (emission s) `muld` ( (l `dot` nl) * omega))) `muld` (1/pi))
+                                                        else acc
+                                _ -> acc
+        em = foldl (light) (Vec(0.0, 0.0, 0.0)) (getLightSources shapes)                    
+    in
+        ((emission obj) `muld` e) `add` em `add` (colp `mulv` (radiance shapes (Ray x d) (drop 5 rands) (depth+1) 0))
+    
+radianceSPEC shapes ray rands depth e n nl x obj colp =
+    (emission obj) `add` (colp `mulv` (radiance shapes (Ray x ((direction ray) `sub` (n `muld` ndrd `muld` 2))) (drop 5 rands) (depth+1) 1))
+        where
+            ndrd = n `dot` (direction ray)
+                            
+radianceREFR shapes ray rands depth e n nl x obj colp =
+    let
+        ndrd = n `dot` (direction ray)
+        refl = Ray x ((direction ray) `sub` (n `muld` ndrd `muld` 2))
+        into = (n `dot` nl)>0
+        nc = 1.0
+        nt = 1.5
+        nnt = if into
+                then nc/nt
+                else nt/nc
+        ddn = (direction ray) `dot` nl
+        cos2t = 1-((nnt^2)*(1-(ddn^2)))
+    in
+        if cos2t < 0 --total internal reflection
+            then (emission obj) `add` (colp `mulv` (radiance shapes refl (drop 5 rands) (depth+1) 1))
+            else let
+                    yon = if into
+                            then 1.0
+                            else (-1.0)
+                    tdir = norm (((direction ray) `muld` nnt) `sub` (n `muld` yon `muld` (ddn*nnt + sqrt(cos2t))) )
+                    a = nt-nc
+                    b = nt+nc
+                    c = if into
+                            then (ddn * (-1.0))
+                            else tdir `dot` n
+                    r0 = (a^2)/(b^2)
+                    re = r0 + (1-r0)*(c^5)
+                    tr = 1-re
+                    p = 0.25 + 0.5*re
+                    rp = re/p
+                    tp = tr/(1-p)
+                    ran = head $ drop 6 $ rands
+                    next_rands = drop 7 $ rands
+                 in
+                    (emission obj) `add` (colp `mulv` if depth > 2
+                                                    then if ran < p
+                                                            then ( radiance shapes refl (drop 7 rands) (depth+1) 1) `muld` rp
+                                                            else ( radiance shapes (Ray x tdir) (drop 7 rands) (depth+1) 1) `muld` tp
+                                                    else add (( radiance shapes refl (drop 7 rands) (depth+1) 1) `muld` re) (( radiance shapes (Ray x tdir) (drop 14 rands) (depth+1) 1) `muld` tr))
                                                                     
-getSubpixel :: [Shape] -> Ray -> [Double] -> Vec -> Int -> Double -> Vec -> Vec -> Double -> Double -> Double -> Double -> Double -> Double -> Vec          
-
+getSubpixel :: [Shape] -> Ray -> [Double] -> Vec -> Int -> Double -> Vec -> Vec -> Double -> Double -> Double -> Double -> Double -> Double -> Vec
 getSubpixel scene cam rands acc samps asamps cx cy sx sy x y w h
     | samps == 0 = acc
     | otherwise = 
