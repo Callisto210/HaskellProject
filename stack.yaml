@@ -64,9 +64,3 @@ extra-package-dbs: []
 #
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
-
-templates:
-	params:
-		author-email: patryk.d@10g.pl
-		author-name: Patryk Duda
-		github-username: Callisto210
