@@ -1,0 +1,17 @@
+https://github.com/WojciechKarpiel/cayley-dickson
+
+eval (NumList l) = constructFromList (map (\x-> case x of Number d-> d) l)
+-Nie jest to ładne. Co jeśli w liście będzie coś innego niż number
+
+
+eval (List l) = let Operation op = (head l)
+                    in
+			evalOp op (tail l)
+-Czy przypisanie do op jest konieczne?
+
+-Niektóre wcięcia w kodzie nie są poprawne
+-Niektóre funkcje są definiowane niżej niż ich wywołanie
+
+
++Małe funkcje, bardzo czytelny kod
++Kazda funkcja ma napisaną deklarację typu 
