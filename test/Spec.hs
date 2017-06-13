@@ -5,7 +5,7 @@ import Ray
 import Material
 import Vec
 import Shapes
-import Main
+import Lib
 
 
 instance Arbitrary Vec where
@@ -22,7 +22,8 @@ instance Arbitrary Ray where
 		return (Ray origin direction)
 		
 instance Arbitrary Material where
-	arbitrary = choose (DEFF, REFR, SPEC)
+	--arbitrary = choose (DIFF, SPEC, REFR)
+	arbitrary = do return DIFF
 		
 instance Arbitrary Shape where
 	arbitrary = do
@@ -38,9 +39,9 @@ prop_light s | (emission s) == Vec(0.0, 0.0, 0.0) = ([] == getLightSources [s])
 			 | otherwise = ([s] == getLightSources [s])
 			 
 prop_surface :: Shape -> Ray -> Bool
-prop_surface s r -> case intersect s r of
+prop_surface s r = case intersect s r of
 					Nothing -> True
-					(Just x) -> ((getSurfaceNormal s x r) `dot` (direction r)) < 0
+					Just(s, d) -> ((getSurfaceNormal s ((origin r) `add` ((direction r) `muld` d)) r) `dot` (direction r)) < 0
 					
 prop_add :: Vec -> Vec -> Vec -> Bool
 prop_add a b c = ((a `add` b) `add` c) == (b `add` (a `add` c))
