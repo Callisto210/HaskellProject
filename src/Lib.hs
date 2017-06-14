@@ -13,6 +13,7 @@ clamp x | x < 0.0 = 0.0
         | x > 1.0 = 1.0
         | otherwise = x
 
+-- | Return shapes hit by ray
 hit :: [Shape] -> Ray ->  [(Shape, Double)]
 hit shapes ray = 
     case mapMaybe (\s -> intersect s ray) shapes of
@@ -20,6 +21,7 @@ hit shapes ray =
         l -> [foldl1 (\acc@(s1, d1) p@(s2, d2) -> if d1 < d2 then acc else p) l]
 
 
+-- | Return color of ray interacted with scene
 radiance :: [Shape] -> Ray -> [Double] -> Int -> Double -> Vec  --return color
 radiance shapes ray rands depth e =
     case (hit shapes ray) of
@@ -44,7 +46,8 @@ radiance shapes ray rands depth e =
                                     DIFF -> radianceDIFF shapes ray rands depth e n nl x obj colp
                                     SPEC -> radianceSPEC shapes ray rands depth e n nl x obj colp
                                     REFR -> radianceREFR shapes ray rands depth e n nl x obj colp
-                            
+
+-- | Return color if ray hit diffuse shape                            
 radianceDIFF shapes ray rands depth e n nl x obj colp =                       
     let 
         r1 = 2*pi*(head $ drop 1 $ rands)
@@ -83,12 +86,14 @@ radianceDIFF shapes ray rands depth e n nl x obj colp =
         em = foldl (light) (Vec(0.0, 0.0, 0.0)) (getLightSources shapes)                    
     in
         ((emission obj) `muld` e) `add` em `add` (colp `mulv` (radiance shapes (Ray x d) (drop 5 rands) (depth+1) 0))
-    
+
+-- | Return color if ray hit specular (mirror) shape    
 radianceSPEC shapes ray rands depth e n nl x obj colp =
     (emission obj) `add` (colp `mulv` (radiance shapes (Ray x ((direction ray) `sub` (n `muld` ndrd `muld` 2))) (drop 5 rands) (depth+1) 1))
         where
             ndrd = n `dot` (direction ray)
-                            
+
+-- | Return color if ray hit glass shape                            
 radianceREFR shapes ray rands depth e n nl x obj colp =
     let
         ndrd = n `dot` (direction ray)
@@ -128,7 +133,8 @@ radianceREFR shapes ray rands depth e n nl x obj colp =
                                                             then ( radiance shapes refl (drop 7 rands) (depth+1) 1) `muld` rp
                                                             else ( radiance shapes (Ray x tdir) (drop 7 rands) (depth+1) 1) `muld` tp
                                                     else add (( radiance shapes refl (drop 7 rands) (depth+1) 1) `muld` re) (( radiance shapes (Ray x tdir) (drop 14 rands) (depth+1) 1) `muld` tr))
-                                                                    
+      
+-- | Return color of subpixel                                                              
 getSubpixel :: [Shape] -> Ray -> [Double] -> Vec -> Int -> Double -> Vec -> Vec -> Double -> Double -> Double -> Double -> Double -> Double -> Vec
 getSubpixel scene cam rands acc samps asamps cx cy sx sy x y w h
     | samps == 0 = acc
@@ -153,7 +159,8 @@ getSubpixel scene cam rands acc samps asamps cx cy sx sy x y w h
             rad = newray `seq` ((radiance scene (newray) (drop 2 rands) 0 1.0) `muld` (1.0/asamps))
         in
             getSubpixel scene cam (drop 17 rands) (acc `add` rad) (samps-1) asamps cx cy sx sy x y w h
-   
+
+-- | Return color of pixel
 getPixel scene cam rands samps cx cy x y w h = 
     foldl1 (add) [ fun sx sy | sx <- [0,1], sy <- [0,1]]
         where
@@ -162,6 +169,8 @@ getPixel scene cam rands samps cx cy x y w h =
                             in  
                                 Vec((clamp x), (clamp y), (clamp z)) `muld` 0.25
 
+
+-- | Return image (array of colors)
 getImage :: [Shape] -> Ray -> [Double] -> Int -> Int -> Int -> Array (Int, Int) Vec           
 getImage scene cam rands samps w h =
     let

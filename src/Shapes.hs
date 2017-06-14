@@ -14,7 +14,7 @@ data Shape = Sphere
                 , material :: Material
                 } deriving (Show, Eq)
                 
-
+-- | Return (Shape, Double) if ray intersect shape, else return Nothing
 intersect :: Shape -> Ray -> Maybe (Shape, Double) --returns Just distance or Nothing if no hit
 intersect sphere ray =
     let
@@ -34,7 +34,8 @@ intersect sphere ray =
                          then Just (sphere,s1)
                          else Just (sphere,s2)
                     else Nothing
-        
+
+-- | Return surface normal vector       
 getSurfaceNormal :: Shape -> Vec -> Ray -> Vec
 getSurfaceNormal sphere x ray =
     let
@@ -44,7 +45,7 @@ getSurfaceNormal sphere x ray =
         then n
         else n `muld` (-1.0)
         
-        
+-- | Get all light sources    
 getLightSources :: [Shape] -> [Shape]
 getLightSources shapes =
     filter filter_fun shapes
